@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心理測驗</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f9f9f9;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+        #app-container {
+            width: 100%;
+            max-width: 600px;
+            background-color: white;
+            min-height: 100vh;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
+        }
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        /* 控制目前顯示的頁面 */
+        .screen.active {
+            display: flex;
+        }
+        
+        .primary-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            margin-bottom: 40px;
+            transition: background-color 0.3s;
+            width: 100%;
+            max-width: 300px;
+        }
+        .primary-btn:hover {
+            background-color: #45a049;
+        }
+
+        /* 測驗頁面樣式 */
+        #quiz-screen {
+            align-items: stretch; /* 讓內容填滿寬度 */
+        }
+        .question-container {
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+        .question-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            white-space: pre-line; /* 保持題目中的換行 */
+        }
+        .option-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background-color: #f1f1f1;
+            border: 2px solid transparent; 
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            box-sizing: border-box;
+        }
+        .option-btn:hover {
+            background-color: #e2e2e2;
+        }
+        /* 點選後的紅框效果 */
+        .option-btn.selected {
+            border: 2px solid red;
+            background-color: #ffe6e6;
+        }
+
+        /* 雷達圖容器 */
+        #chart-container {
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+        }
+        h2 {
+            text-align: center;
+        }
+
+        /* 額外要求1：最高分數類型文字樣式 */
+        #type-result-text {
+            font-size: 22px;
+            font-weight: bold;
+            color: #d32f2f;
+            margin-top: 30px;
+            margin-bottom: 10px;
+            text-align: center;
+            background-color: #ffeeb3;
+            padding: 12px 25px;
+            border-radius: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div id="start-screen" class="screen active">
+        <h1 style="margin-top: 100px;">自我特質測驗</h1>
+        <button id="start-btn" class="primary-btn">開始測驗</button>
+    </div>
+
+    <div id="quiz-screen" class="screen">
+        <div id="questions-wrapper">
+            </div>
+        <div style="text-align: center;">
+            <button id="submit-btn" class="primary-btn">提交結果</button>
+        </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h2>你的特質分析雷達圖</h2>
+        <div id="chart-container">
+            <canvas id="radarChart"></canvas>
+        </div>
+        
+        <div id="type-result-text"></div>
+
+        <button onclick="location.reload()" class="primary-btn">重新測驗</button>
+    </div>
+</div>
+
+<script>
+    // 題庫資料 (要求4)
+    const questionsData = [
+        {
+            title: "第一題：晚上12點，你原本只是想休息10分鐘再讀書。結果回過神已經凌晨3點。\n\n你的第一反應：",
+            options: [
+                { type: 'A', text: "A「完了，我明天一定死定了」" },
+                { type: 'B', text: "B「算了，明天再說吧」" },
+                { type: 'C', text: "C「為什麼我連這種事都控制不好」" },
+                { type: 'D', text: "D「如果別人知道我這樣一定覺得我很混」" },
+                { type: 'E', text: "E 表面裝冷靜，但其實心裡很慌" },
+                { type: 'F', text: "F「不行，我現在開始讀到天亮」" },
+                { type: 'G', text: "G「嗯…反正都已經這樣了」" }
+            ]
+        },
+        {
+            title: "第二題：朋友突然開始回訊息很慢。\n\n你將會：",
+            options: [
+                { type: 'A', text: "A 一直想是不是發生什麼事" },
+                { type: 'B', text: "B 懶得想了，乾脆也不回" },
+                { type: 'C', text: "C 覺得是不是自己太無聊" },
+                { type: 'D', text: "D 開始拼命找話題想讓氣氛變好" },
+                { type: 'E', text: "E 假裝不在意，但其實會一直偷看聊天室" },
+                { type: 'F', text: "F 開始檢討自己是不是哪句話講不好" },
+                { type: 'G', text: "G 覺得對方可能只是在忙" }
+            ]
+        },
+        {
+            title: "第三題：教授突然說：「這次期中很多人會被當。」\n\n你的內心：",
+            options: [
+                { type: 'A', text: "A 開始幻想自己延畢" },
+                { type: 'B', text: "B 想說先不要想這件事" },
+                { type: 'C', text: "C 覺得自己本來就不夠聰明" },
+                { type: 'D', text: "D 開始擔心別人會不會覺得自己很爛" },
+                { type: 'E', text: "E 嘴巴說「沒差啦」但其實超慌" },
+                { type: 'F', text: "F 決定這幾天直接爆肝" },
+                { type: 'G', text: "G 覺得先準備再說就好" }
+            ]
+        },
+        {
+            title: "第四題：你看到朋友在限動發：「今天又讀了10小時。」\n\n你的反應：",
+            options: [
+                { type: 'A', text: "A 開始焦慮自己進度落後" },
+                { type: 'B', text: "B 直接滑掉不想看" },
+                { type: 'C', text: "C 覺得自己真的很廢" },
+                { type: 'D', text: "D 怕別人也覺得自己不努力" },
+                { type: 'E', text: "E 表面按讚，心裡其實壓力很大" },
+                { type: 'F', text: "F 突然逼自己開始讀書" },
+                { type: 'G', text: "G 覺得每個人步調不同" }
+            ]
+        },
+        {
+            title: "第五題：分組報告有人擺爛時：",
+            options: [
+                { type: 'A', text: "A 開始焦慮報告會不會炸掉" },
+                { type: 'B', text: "B 懶得管了，直接一起擺爛" },
+                { type: 'C', text: "C 懷疑是不是自己能力不夠才帶不起來" },
+                { type: 'D', text: "D 怕氣氛尷尬所以自己多做" },
+                { type: 'E', text: "E 心裡很不爽但不講" },
+                { type: 'F', text: "F 乾脆全部自己做比較快" },
+                { type: 'G', text: "G 先觀察其他人反應" }
+            ]
+        },
+        {
+            title: "第六題：晚上躺床後，大腦突然開始播放人生跑馬燈。\n\n你通常會：",
+            options: [
+                { type: 'A', text: "A 越想越焦慮" },
+                { type: 'B', text: "B 直接滑手機轉移注意力" },
+                { type: 'C', text: "C 開始覺得自己人生很失敗" },
+                { type: 'D', text: "D 想到別人是不是都過得比自己好" },
+                { type: 'E', text: "E 明明情緒很多但不想表現出來" },
+                { type: 'F', text: "F 開始規劃明天要怎麼更努力" },
+                { type: 'G', text: "G 想一下就睡了" }
+            ]
+        },
+        {
+            title: "第七題：有人稱讚你：「你真的很厲害。」\n\n你心裡比較像：",
+            options: [
+                { type: 'A', text: "A 開始擔心之後表現不好" },
+                { type: 'B', text: "B 隨便帶過這個話題" },
+                { type: 'C', text: "C 覺得對方只是客套" },
+                { type: 'D', text: "D 很在意對方對自己的看法" },
+                { type: 'E', text: "E 嘴巴說沒什麼但其實不知道怎麼回" },
+                { type: 'F', text: "F 覺得自己還可以更強" },
+                { type: 'G', text: "G 正常接受稱讚" }
+            ]
+        },
+        {
+            title: "第八題：朋友約你出去，但你今天其實很累。\n\n你比較可能：",
+            options: [
+                { type: 'A', text: "A 開始糾結到底要不要去" },
+                { type: 'B', text: "B 直接裝忙消失" },
+                { type: 'C', text: "C 覺得自己是不是不太會社交" },
+                { type: 'D', text: "D 還是答應，怕被覺得難約" },
+                { type: 'E', text: "E 去了但其實全程都很累" },
+                { type: 'F', text: "F 想說最近太廢了，還是出去充實一下" },
+                { type: 'G', text: "G 看當下狀態決定" }
+            ]
+        },
+        {
+            title: "第九題：你有很多事情沒做，但現在完全不想動。\n\n你會：",
+            options: [
+                { type: 'A', text: "A 開始焦慮待辦越堆越多" },
+                { type: 'B', text: "B 先滑手機再說" },
+                { type: 'C', text: "C 覺得自己真的很沒用" },
+                { type: 'D', text: "D 擔心別人會覺得自己很混" },
+                { type: 'E', text: "E 明明壓力很大但裝沒事" },
+                { type: 'F', text: "F 突然進入爆肝模式" },
+                { type: 'G', text: "G 先休息一下再處理" }
+            ]
+        },
+        {
+            title: "第十題：你跟別人發生小尷尬後。\n\n回家時：",
+            options: [
+                { type: 'A', text: "A 會一直重播剛剛畫面" },
+                { type: 'B', text: "B 逼自己不要再想" },
+                { type: 'C', text: "C 開始覺得是不是自己很怪" },
+                { type: 'D', text: "D 擔心對方是不是討厭自己" },
+                { type: 'E', text: "E 裝作沒事但其實記超久" },
+                { type: 'F', text: "F 開始檢討自己哪裡能更好" },
+                { type: 'G', text: "G 覺得只是小事" }
+            ]
+        }
+    ];
+
+    const userAnswers = new Array(10).fill(null);
+
+    // 面向代碼與中文名稱的對照表
+    const typeNames = {
+        'A': '焦慮型',
+        'B': '逃避型',
+        'C': '自我懷疑型',
+        'D': '討好型',
+        'E': '壓抑型',
+        'F': '過度努力型',
+        'G': '無所謂'
+    };
+
+    // 初始化題目
+    function initQuiz() {
+        const wrapper = document.getElementById('questions-wrapper');
+        
+        questionsData.forEach((q, index) => {
+            const qDiv = document.createElement('div');
+            qDiv.className = 'question-container';
+            
+            const qTitle = document.createElement('div');
+            qTitle.className = 'question-title';
+            qTitle.innerText = q.title;
+            qDiv.appendChild(qTitle);
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt.text;
+                
+                // 點擊選項的邏輯
+                btn.onclick = () => {
+                    // 移除同題目其他選項的選中狀態
+                    const siblings = qDiv.querySelectorAll('.option-btn');
+                    siblings.forEach(s => s.classList.remove('selected'));
+                    
+                    // 加上紅框
+                    btn.classList.add('selected');
+                    
+                    // 記錄答案 (A~G)
+                    userAnswers[index] = opt.type;
+                };
+                
+                qDiv.appendChild(btn);
+            });
+            
+            wrapper.appendChild(qDiv);
+        });
+    }
+
+    // 畫面切換邏輯
+    document.getElementById('start-btn').addEventListener('click', () => {
+        document.getElementById('start-screen').classList.remove('active');
+        document.getElementById('quiz-screen').classList.add('active');
+        window.scrollTo(0, 0); // 跳轉後回到頂部
+    });
+
+    // 提交結果邏輯
+    document.getElementById('submit-btn').addEventListener('click', () => {
+        // 檢查是否所有題目都作答完畢
+        if (userAnswers.includes(null)) {
+            alert("請完成所有題目後再提交喔！");
+            return;
+        }
+
+        // 分數計算對應表
+        const scores = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0 };
+
+        // 統計分數
+        userAnswers.forEach(answer => {
+            if (scores[answer] !== undefined) {
+                scores[answer]++;
+            }
+        });
+
+        // 額外要求1：計算最高分的面向
+        let maxScore = -1;
+        let highestTypes = [];
+
+        for (let key in scores) {
+            if (scores[key] > maxScore) {
+                maxScore = scores[key];
+                highestTypes = [typeNames[key]]; // 重新建立陣列
+            } else if (scores[key] === maxScore) {
+                highestTypes.push(typeNames[key]); // 同分則併列
+            }
+        }
+
+        // 將最突出的類型文字塞入對應區塊
+        document.getElementById('type-result-text').innerText = "你的類型是：" + highestTypes.join('、');
+
+        // 切換到結果畫面
+        document.getElementById('quiz-screen').classList.remove('active');
+        document.getElementById('result-screen').classList.add('active');
+        window.scrollTo(0, 0);
+
+        // 繪製雷達圖
+        drawRadarChart(scores);
+    });
+
+    // 繪製雷達圖函數 (使用 Chart.js)
+    function drawRadarChart(scores) {
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['焦慮型', '逃避型', '自我懷疑型', '討好型', '壓抑型', '過度努力型', '無所謂'],
+                datasets: [{
+                    label: '特質分數',
+                    data: [
+                        scores['A'],
+                        scores['B'],
+                        scores['C'],
+                        scores['D'],
+                        scores['E'],
+                        scores['F'],
+                        scores['G']
+                    ],
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        angleLines: { display: true },
+                        suggestedMin: 0,
+                        suggestedMax: 10,
+                        ticks: { stepSize: 2 }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // 頁面載入時初始化題目
+    window.onload = initQuiz;
+</script>
+
+</body>
+</html>
