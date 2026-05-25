@@ -280,4 +280,156 @@
         }
     ];
 
-    const user
+    const userAnswers = new Array(10).fill(null);
+
+    // 面向代碼與中文名稱的對照表
+    const typeNames = {
+        'A': '焦慮型',
+        'B': '逃避型',
+        'C': '自我懷疑型',
+        'D': '討好型',
+        'E': '壓抑型',
+        'F': '過度努力型',
+        'G': '無所謂'
+    };
+
+    // 初始化題目
+    function initQuiz() {
+        const wrapper = document.getElementById('questions-wrapper');
+        
+        questionsData.forEach((q, index) => {
+            const qDiv = document.createElement('div');
+            qDiv.className = 'question-container';
+            
+            const qTitle = document.createElement('div');
+            qTitle.className = 'question-title';
+            qTitle.innerText = q.title;
+            qDiv.appendChild(qTitle);
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerText = opt.text;
+                
+                // 點擊選項的邏輯
+                btn.onclick = () => {
+                    // 移除同題目其他選項的選中狀態
+                    const siblings = qDiv.querySelectorAll('.option-btn');
+                    siblings.forEach(s => s.classList.remove('selected'));
+                    
+                    // 加上紅框
+                    btn.classList.add('selected');
+                    
+                    // 記錄答案 (A~G)
+                    userAnswers[index] = opt.type;
+                };
+                
+                qDiv.appendChild(btn);
+            });
+            
+            wrapper.appendChild(qDiv);
+        });
+    }
+
+    // 畫面切換邏輯
+    document.getElementById('start-btn').addEventListener('click', () => {
+        document.getElementById('start-screen').classList.remove('active');
+        document.getElementById('quiz-screen').classList.add('active');
+        window.scrollTo(0, 0); // 跳轉後回到頂部
+    });
+
+    // 提交結果邏輯
+    document.getElementById('submit-btn').addEventListener('click', () => {
+        // 檢查是否所有題目都作答完畢
+        if (userAnswers.includes(null)) {
+            alert("請完成所有題目後再提交喔！");
+            return;
+        }
+
+        // 分數計算對應表
+        const scores = { 'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0 };
+
+        // 統計分數
+        userAnswers.forEach(answer => {
+            if (scores[answer] !== undefined) {
+                scores[answer]++;
+            }
+        });
+
+        // 額外要求1：計算最高分的面向
+        let maxScore = -1;
+        let highestTypes = [];
+
+        for (let key in scores) {
+            if (scores[key] > maxScore) {
+                maxScore = scores[key];
+                highestTypes = [typeNames[key]]; // 重新建立陣列
+            } else if (scores[key] === maxScore) {
+                highestTypes.push(typeNames[key]); // 同分則併列
+            }
+        }
+
+        // 將最突出的類型文字塞入對應區塊
+        document.getElementById('type-result-text').innerText = "你的類型是：" + highestTypes.join('、');
+
+        // 切換到結果畫面
+        document.getElementById('quiz-screen').classList.remove('active');
+        document.getElementById('result-screen').classList.add('active');
+        window.scrollTo(0, 0);
+
+        // 繪製雷達圖
+        drawRadarChart(scores);
+    });
+
+    // 繪製雷達圖函數 (使用 Chart.js)
+    function drawRadarChart(scores) {
+        const ctx = document.getElementById('radarChart').getContext('2d');
+        
+        new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['焦慮型', '逃避型', '自我懷疑型', '討好型', '壓抑型', '過度努力型', '無所謂'],
+                datasets: [{
+                    label: '特質分數',
+                    data: [
+                        scores['A'],
+                        scores['B'],
+                        scores['C'],
+                        scores['D'],
+                        scores['E'],
+                        scores['F'],
+                        scores['G']
+                    ],
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        angleLines: { display: true },
+                        suggestedMin: 0,
+                        suggestedMax: 10,
+                        ticks: { stepSize: 2 }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+
+    // 頁面載入時初始化題目
+    window.onload = initQuiz;
+</script>
+
+</body>
+</html>
